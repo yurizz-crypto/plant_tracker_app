@@ -1,6 +1,6 @@
 # Plant Sample Tracker
 
-A simple mobile application built with Flutter for researchers to log, track, and manage plant sample data. The app connects to a Supabase backend, which provides a PostgreSQL database and an auto-generated API.
+A simple desktop application built with Flutter for researchers to log, track, and manage plant sample data. The app connects to a Supabase backend, which provides a PostgreSQL database and an auto-generated API.
 
 ## 🚀 Core Features
 

@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 final supabase = Supabase.instance.client;
 
+/// Simple model class to hold Researcher dropdown data
 class Researcher {
   final int id;
   final String name;
@@ -25,6 +26,7 @@ class _AddSamplePageState extends State<AddSamplePage> {
   bool _isLoading = false;
   String? _loadingMessage = 'Loading...';
 
+  // Form Controllers
   final _heightController = TextEditingController();
   final _soilPhController = TextEditingController();
   final _humidityController = TextEditingController();
@@ -41,7 +43,7 @@ class _AddSamplePageState extends State<AddSamplePage> {
   @override
   void initState() {
     super.initState();
-    _fetchResearchers();
+    _fetchResearchers(); // Populate dropdown on load
   }
 
   @override
@@ -52,6 +54,8 @@ class _AddSamplePageState extends State<AddSamplePage> {
     super.dispose();
   }
 
+  /// Fetches the list of available researchers from 'researcher_info'
+  /// to populate the dropdown menu.
   Future<void> _fetchResearchers() async {
     setState(() {
       _isLoading = true;
@@ -78,6 +82,12 @@ class _AddSamplePageState extends State<AddSamplePage> {
     }
   }
 
+  /// Handles GPS Permissions and retrieval.
+  /// 
+  /// 1. Checks if Location Services are enabled.
+  /// 2. Checks if App has permission.
+  /// 3. Requests permission if not granted.
+  /// 4. Returns current Lat/Long.
   Future<Position> _getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -102,6 +112,15 @@ class _AddSamplePageState extends State<AddSamplePage> {
     return await Geolocator.getCurrentPosition();
   }
 
+  /// Validates form and Inserts data into Supabase.
+  /// 
+  /// Flow:
+  /// 1. Validate Form.
+  /// 2. Get GPS Location.
+  /// 3. Construct JSON maps for 'details', 'location', and 'conditions' columns.
+  /// 4. INSERT into 'plant_sample_details'.
+  /// 5. Retrieve the new 'sample_id'.
+  /// 6. INSERT into 'sample_researcher' (Junction Table).
   Future<void> _submitData() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -122,6 +141,7 @@ class _AddSamplePageState extends State<AddSamplePage> {
       final double? soilPh = double.tryParse(_soilPhController.text);
       final String humidity = _humidityController.text;
 
+      // Preparing JSONB structures
       final Map<String, dynamic> detailsMap = {
         'species': _selectedSpecies,
         'height_cm': height,
@@ -136,6 +156,7 @@ class _AddSamplePageState extends State<AddSamplePage> {
       };
 
       setState(() { _loadingMessage = 'Inserting sample...'; });
+      // Insert and return the record to get the generated ID
       final sample = await supabase
           .from('plant_sample_details')
           .insert({
@@ -149,6 +170,7 @@ class _AddSamplePageState extends State<AddSamplePage> {
           
       final int newSampleId = sample['sample_id'];
 
+      // Link the sample to the researcher in the junction table
       setState(() { _loadingMessage = 'Linking researcher...'; });
       await supabase.from('sample_researcher').insert({
         'sample_id': newSampleId,
@@ -162,7 +184,7 @@ class _AddSamplePageState extends State<AddSamplePage> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(); // Return to Home
       }
 
     } catch (e) {
@@ -210,6 +232,7 @@ class _AddSamplePageState extends State<AddSamplePage> {
                   child: ListView(
                     padding: const EdgeInsets.all(16.0),
                     children: [
+                      // --- Researcher Dropdown ---
                       DropdownButtonFormField<Researcher>(
                         initialValue: _selectedResearcher,
                         decoration: const InputDecoration(
@@ -231,6 +254,8 @@ class _AddSamplePageState extends State<AddSamplePage> {
                             value == null ? 'Please select a researcher.' : null,
                       ),
                       const SizedBox(height: 16),
+                      
+                      // --- Species Dropdown ---
                       DropdownButtonFormField<String>(
                         initialValue: _selectedSpecies,
                         decoration: const InputDecoration(
@@ -252,6 +277,8 @@ class _AddSamplePageState extends State<AddSamplePage> {
                             value == null ? 'Please select a species.' : null,
                       ),
                       const SizedBox(height: 16),
+
+                      // --- Height Input ---
                       TextFormField(
                         controller: _heightController,
                         decoration: const InputDecoration(
@@ -266,6 +293,8 @@ class _AddSamplePageState extends State<AddSamplePage> {
                             value == null || value.isEmpty ? 'Please enter a height.' : null,
                       ),
                       const SizedBox(height: 16),
+                      
+                      // --- Conditions Section ---
                       Text('Sample Conditions',
                           style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 12),
@@ -290,6 +319,8 @@ class _AddSamplePageState extends State<AddSamplePage> {
                         ),
                       ),
                       const SizedBox(height: 32),
+                      
+                      // --- Submit Button ---
                       ElevatedButton(
                         onPressed: _submitData,
                         style: ElevatedButton.styleFrom(

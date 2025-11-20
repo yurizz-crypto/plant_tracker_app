@@ -4,8 +4,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'add_sample_page.dart';
 import 'edit_sample_page.dart';
 
+// Access the global Supabase client
 final supabase = Supabase.instance.client;
 
+/// The Dashboard/Home Screen.
+/// 
+/// Allows the user to:
+/// 1. Navigate to Add Sample page.
+/// 2. Input a Sample ID.
+/// 3. Query details (Read).
+/// 4. Navigate to Update page.
+/// 5. Delete a sample.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -14,9 +23,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  /// Controller for the Sample ID input field.
   final _sampleIdController = TextEditingController();
+  
+  /// Stores feedback messages (errors, success, or query results) shown to the user.
   String _statusMessage = 'Enter a Sample ID to fetch, update, or delete.';
 
+  /// Fetches a specific sample and its associated researcher.
+  /// 
+  /// Uses PostgREST syntax to perform a JOIN on 'researcher_info'.
   Future<void> querySample() async {
     final id = int.tryParse(_sampleIdController.text);
     if (id == null) {
@@ -31,6 +46,9 @@ class _HomePageState extends State<HomePage> {
         _statusMessage = 'Querying...';
       });
 
+      // Selecting specific columns and performing a relational join.
+      // Syntax: 'researcher_info ( name, affiliation )' fetches related data 
+      // from the foreign table.
       final data = await supabase
           .from('plant_sample_details')
           .select('''
@@ -40,13 +58,14 @@ class _HomePageState extends State<HomePage> {
             location,
             researcher_info ( name, affiliation )
           ''')
-          .eq('sample_id', id)
-          .single();
+          .eq('sample_id', id) // Filter by ID
+          .single(); // Expecting exactly one result
 
       setState(() {
         _statusMessage = 'Found Sample: \n${data.toString()}';
       });
     } on PostgrestException catch (e) {
+      // Handle Database specific errors (e.g., Not Found, Permission Denied)
       setState(() {
         _statusMessage = 'Error querying: ${e.message}';
       });
@@ -57,6 +76,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// Validates ID and navigates to the Edit Page.
   Future<void> updateSample() async {
     final id = int.tryParse(_sampleIdController.text);
     if (id == null) {
@@ -67,6 +87,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     if (mounted) {
+      // Pass the sampleID to the Edit page so it knows what to fetch
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => EditSamplePage(sampleId: id)),
@@ -74,6 +95,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// Deletes a record from 'plant_sample_details'.
+  /// 
+  /// Note: Due to Cascade rules in the DB (if set), this might also delete
+  /// entries in the 'sample_researcher' junction table.
   Future<void> deleteSample() async {
     final id = int.tryParse(_sampleIdController.text);
     if (id == null) {
@@ -124,6 +149,7 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // --- Navigation to Create Page ---
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     textStyle: const TextStyle(fontWeight: FontWeight.bold),
@@ -140,6 +166,8 @@ class _HomePageState extends State<HomePage> {
                   child: const Text('Add New Sample'),
                 ),
                 const Divider(height: 30),
+                
+                // --- ID Input ---
                 TextField(
                   controller: _sampleIdController,
                   decoration: const InputDecoration(
@@ -149,6 +177,8 @@ class _HomePageState extends State<HomePage> {
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 12),
+                
+                // --- Action Buttons (Query, Update, Delete) ---
                 Wrap(
                   spacing: 8.0,
                   alignment: WrapAlignment.center,
@@ -187,6 +217,8 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
                 const SizedBox(height: 20),
+                
+                // --- Status/Result Display ---
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(

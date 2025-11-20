@@ -13,6 +13,7 @@ class Researcher {
 }
 
 class EditSamplePage extends StatefulWidget {
+  // The ID of the sample we want to edit.
   final int sampleId;
   const EditSamplePage({super.key, required this.sampleId});
 
@@ -44,6 +45,9 @@ class _EditSamplePageState extends State<EditSamplePage> {
     _loadInitialData();
   }
 
+  /// Orchestrates the loading sequence:
+  /// 1. Fetch list of researchers (needed for the dropdown).
+  /// 2. Fetch the specific sample data (to fill the fields).
   Future<void> _loadInitialData() async {
     setState(() {
       _isLoading = true;
@@ -67,6 +71,7 @@ class _EditSamplePageState extends State<EditSamplePage> {
     super.dispose();
   }
 
+  /// Gets all researchers to populate the DropdownMenu
   Future<void> _fetchResearchers() async {
     try {
       final data = await supabase
@@ -88,6 +93,11 @@ class _EditSamplePageState extends State<EditSamplePage> {
     }
   }
 
+  /// Fetches current DB values for the sample.
+  /// 
+  /// Parses the JSONB 'details' and 'conditions' columns to extract
+  /// specific values like soil_ph, height, etc., and assigns them to controllers.
+  /// Also resolves the 'sample_researcher' link to pre-select the correct researcher.
   Future<void> _fetchSampleData() async {
     try {
       final data = await supabase
@@ -103,16 +113,19 @@ class _EditSamplePageState extends State<EditSamplePage> {
       final details = data['details'];
       final conditions = data['conditions'];
       
+      // Handle the Junction Table result
       if (data['sample_researcher'] == null || (data['sample_researcher'] as List).isEmpty) {
         throw Exception('No researcher linked to this sample.');
       }
       final int researcherId = data['sample_researcher'][0]['researcher_id'];
 
+      // Populate UI Controllers
       _heightController.text = (details?['height_cm'] ?? '').toString();
       _soilPhController.text = (conditions?['soil_ph'] ?? '').toString();
       _humidityController.text = conditions?['humidity'] ?? '';
       _selectedSpecies = details?['species'];
 
+      // Set the dropdown value based on the fetched ID
       _selectedResearcher = _researcherList.firstWhere(
         (r) => r.id == researcherId,
       );
@@ -122,6 +135,10 @@ class _EditSamplePageState extends State<EditSamplePage> {
     }
   }
 
+  /// Updates the database records.
+  /// 
+  /// 1. Updates 'plant_sample_details' with new JSONB objects.
+  /// 2. Updates 'sample_researcher' to link the new researcher ID.
   Future<void> _updateData() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -138,6 +155,7 @@ class _EditSamplePageState extends State<EditSamplePage> {
       final double? soilPh = double.tryParse(_soilPhController.text);
       final String humidity = _humidityController.text;
 
+      // Re-pack data into JSON maps
       final Map<String, dynamic> detailsMap = {
         'species': _selectedSpecies,
         'height_cm': height,
@@ -157,6 +175,7 @@ class _EditSamplePageState extends State<EditSamplePage> {
           .eq('sample_id', widget.sampleId);
           
       setState(() { _loadingMessage = 'Updating researcher link...'; });
+      // Update the Foreign Key in the junction table
       await supabase
         .from('sample_researcher')
         .update({ 'researcher_id': selectedResearcherId })
@@ -217,6 +236,7 @@ class _EditSamplePageState extends State<EditSamplePage> {
                   child: ListView(
                     padding: const EdgeInsets.all(16.0),
                     children: [
+                      // --- Researcher Selection ---
                       DropdownButtonFormField<Researcher>(
                         initialValue: _selectedResearcher,
                         decoration: const InputDecoration(
@@ -238,6 +258,8 @@ class _EditSamplePageState extends State<EditSamplePage> {
                             value == null ? 'Please select a researcher.' : null,
                       ),
                       const SizedBox(height: 16),
+                      
+                      // --- Species Selection ---
                       DropdownButtonFormField<String>(
                         initialValue: _selectedSpecies,
                         decoration: const InputDecoration(
@@ -259,6 +281,8 @@ class _EditSamplePageState extends State<EditSamplePage> {
                             value == null ? 'Please select a species.' : null,
                       ),
                       const SizedBox(height: 16),
+                      
+                      // --- Height Input ---
                       TextFormField(
                         controller: _heightController,
                         decoration: const InputDecoration(
@@ -273,6 +297,8 @@ class _EditSamplePageState extends State<EditSamplePage> {
                             value == null || value.isEmpty ? 'Please enter a height.' : null,
                       ),
                       const SizedBox(height: 16),
+                      
+                      // --- Conditions ---
                       Text('Sample Conditions',
                           style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 12),
@@ -297,6 +323,8 @@ class _EditSamplePageState extends State<EditSamplePage> {
                         ),
                       ),
                       const SizedBox(height: 32),
+                      
+                      // --- Submit Button ---
                       ElevatedButton(
                         onPressed: _updateData,
                         style: ElevatedButton.styleFrom(
